@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roster Flow — Monthly Shift Roster</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{--navy:#102044;--green:#19b99a;--green-dark:#0c927a;--ink:#1d2940;--muted:#8590a2;--line:#e8edf2;--page:#f4f7f9;--shadow:0 18px 60px #07152d36}
+*{box-sizing:border-box}
+body{margin:0;padding:24px 14px;color:var(--ink);background:radial-gradient(ellipse at center,#263c6a,#102044 70%);font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input,select{font:inherit}button{cursor:pointer}
+.app{width:min(1400px,100%);min-height:820px;margin:auto;overflow:hidden;border-radius:20px;background:var(--page);box-shadow:var(--shadow)}
+header{height:60px;display:flex;align-items:center;gap:12px;padding:0 20px;color:#fff;background:var(--navy)}
+.brand-icon{font-size:21px;color:#48dfc0}.brand{font-size:16px;font-weight:750}.header-spacer,.spacer{flex:1}
+.connection{font-size:11px;color:#d6dfec}.connection::before{content:"";display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:#a9b2c2}
+.connection.online::before{background:#41d5ae}.connection.error::before{background:#ff7d7d}
+.layout{display:grid;grid-template-columns:48px minmax(0,1fr)}
+.rail{padding:14px 6px;background:#13264a;display:flex;flex-direction:column;align-items:center;gap:9px}
+.rail button{width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:#c3cde0;font-size:16px}
+.rail button:hover,.rail button.active{background:#ffffff18;color:#49dfc0}
+main{min-width:0;padding:16px}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+h1{font-size:18px;margin:0 8px 0 0}h2{font-size:13px;margin:0}
+.button,.select,.input{min-height:34px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#526078;font-size:11px}
+.button{font-weight:650}.button:hover{border-color:#8cdece}.button.primary{color:#fff;background:var(--green);border-color:var(--green)}
+.button.primary:hover{background:var(--green-dark)}.button.danger{color:#b45858}.button.small{min-height:28px;padding:0 9px}
+.card{background:#fff;border:1px solid #edf0f4;border-radius:12px}
+.top-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-bottom:12px}
+.overview,.people-panel,.bottom-card{padding:13px 15px}
+.card-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.muted,.hint{font-size:10px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(75px,1fr));gap:7px}
+.stat{padding:8px;border-radius:8px;background:#f6f8fa}.stat:first-child{background:#e1f7f1}
+.stat strong{display:block;font-size:17px}.stat span{font-size:9px;color:var(--muted)}
+.people-panel{max-height:220px;overflow:auto}.people-list{display:grid;gap:4px}
+.person-row{display:flex;align-items:center;gap:7px;min-height:25px}
+.person-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.dot{width:7px;height:7px;border-radius:50%;background:#59c7ae;flex:none}
+.tiny{border:0;border-radius:5px;background:#f0f3f6;color:#637086;padding:4px 7px;font-size:10px}
+.add-person{display:flex;gap:5px;margin-top:8px}.add-person input{min-width:0;flex:1}
+.roster-card{overflow:hidden}
+.roster-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px;border-bottom:1px solid var(--line)}
+.month-title{font-size:14px;font-weight:750}.sheet-range{font-size:10px;color:var(--muted)}
+.shift-tabs{display:flex;gap:6px;padding:9px 12px 0;overflow-x:auto;background:#fff;border-bottom:1px solid var(--line)}
+.shift-tab{flex:none;padding:8px 11px;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;background:transparent;color:#68758b;font-size:11px;font-weight:650}
+.shift-tab.active{border-color:var(--line);background:#f3fbf9;color:#087966}.shift-tab.add{color:#07816b}
+.shift-info{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-height:44px;padding:7px 12px;background:#fbfcfd;border-bottom:1px solid var(--line)}
+.shift-info strong{font-size:11px}.shift-info span{font-size:10px;color:var(--muted)}
+.table-scroll{overflow:auto;max-height:540px}
+table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;font-size:10px}
+th,td{min-width:65px;height:36px;padding:4px;text-align:center;border-right:1px solid #edf0f3;border-bottom:1px solid #edf0f3;background:#fff;white-space:nowrap}
+thead th{position:sticky;top:0;z-index:3;color:#fff;background:var(--green)}
+.sticky-name{position:sticky;left:0;z-index:2;min-width:150px;max-width:210px;text-align:left;background:#fff}
+.sticky-iqama{position:sticky;left:150px;z-index:2;min-width:115px;max-width:140px;text-align:left;background:#fff}
+thead .sticky-name,.thead-iqama{z-index:4;background:#13ad91}
+.date-heading{min-width:43px}.weekend{background:#fafbfd}.today{box-shadow:inset 0 -3px #81dcca}
+.cell-pill{display:inline-block;max-width:115px;overflow:hidden;text-overflow:ellipsis;padding:3px 5px;border-radius:5px;background:#ddf7f0;color:#087966;font-size:9px;vertical-align:middle}
+.cell-pill.off{background:#e9edf2;color:#657084}.cell-pill.holiday{background:#fae6e3;color:#9b5550}.cell-pill.night{background:#eceeff;color:#5963a0}.cell-pill.note{background:#fff3d9;color:#886414}
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.form-row{display:flex;align-items:center;flex-wrap:wrap;gap:7px}.form-row .input,.form-row .select{flex:1;min-width:105px}
+.hint{margin:8px 0 0}.shift-list{display:grid;gap:6px}
+.shift-manage-row{display:grid;grid-template-columns:minmax(80px,1fr) 85px 82px 82px auto;gap:6px;align-items:center;padding:6px;border:1px solid var(--line);border-radius:8px}
+.shift-manage-row .input,.shift-manage-row .select{min-width:0;width:100%}
+.toast{position:fixed;right:18px;bottom:18px;z-index:10;padding:11px 15px;color:#fff;background:#172744;border-radius:9px;box-shadow:var(--shadow);opacity:0;transform:translateY(6px);transition:.2s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}.empty{padding:24px;text-align:center;color:var(--muted)}
+.import-label{display:inline-flex;align-items:center;justify-content:center}#xlsxInput{display:none}
+@media(max-width:900px){body{padding:10px}.top-grid{grid-template-columns:1fr}.people-panel{max-height:220px}}
+@media(max-width:600px){body{padding:0}.app{border-radius:0}.layout{grid-template-columns:38px minmax(0,1fr)}main{padding:9px}.rail{padding:9px 2px}.rail button{width:32px;height:32px}.stats{grid-template-columns:repeat(3,minmax(70px,1fr))}.bottom-grid{grid-template-columns:1fr}.shift-manage-row{grid-template-columns:1fr 1fr}.shift-manage-row .shift-name-field{grid-column:1/-1}}
+@page{size:A4 landscape;margin:8mm}
+@media print{
+html,body{width:100%;margin:0;padding:0;background:#fff!important;color:#111}
+.app{width:100%;min-height:0;margin:0;overflow:visible;border:0;border-radius:0;box-shadow:none}
+header,.rail,.toolbar,.top-grid,.bottom-grid,.no-print,.toast{display:none!important}
+.layout{display:block}main{padding:0}.roster-card{overflow:visible;border:0;border-radius:0}
+.roster-toolbar{padding:0 0 5px;border:0}.month-title{font-size:15px}.sheet-range{font-size:9px}
+.shift-tabs{padding:0 0 4px;border:0}.shift-tab{display:none}.shift-tab.active{display:inline-block;padding:0;border:0;background:#fff;color:#111;font-size:10px}
+.shift-info{min-height:0;padding:3px 0;border:0;background:#fff}.shift-info span,.shift-info strong{font-size:8px;color:#222}
+.table-scroll{max-height:none;overflow:visible}table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;font-size:7px}
+th,td{min-width:0;height:auto;padding:2px 1px;white-space:normal;overflow-wrap:anywhere;border:1px solid #888;color:#111;background:#fff!important}
+thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}
+thead th{position:static;color:#111;background:#e5e5e5!important;font-size:7px}
+.sticky-name{position:static;width:90px;min-width:90px;max-width:90px;text-align:left}
+.sticky-iqama{position:static;width:75px;min-width:75px;max-width:75px;text-align:left}
+.date-heading{min-width:0}.cell-pill{max-width:none;padding:0;border-radius:0;background:transparent!important;color:#111!important;font-size:6px}
+.dot{display:none!important}.today{box-shadow:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <span class="brand-icon">◉</span><span class="brand">Roster Flow</span>
+  <span class="header-spacer"></span><span id="connectionStatus" class="connection">Connecting to Firebase…</span>
+</header>
+<div class="layout">
+<aside class="rail no-print">
+  <button class="active" title="Roster" data-scroll="rosterCard">▦</button>
+  <button title="Employees" data-scroll="peoplePanel">♙</button>
+  <button title="Manage shifts" data-scroll="shiftManagement">⚙</button>
+  <button title="Add roster entry" data-scroll="entryPanel">＋</button>
+</aside>
+<main>
+  <div class="toolbar no-print">
+    <h1>Team Roster</h1>
+    <select id="monthSelect" class="select" aria-label="Roster month"></select>
+    <button class="button" id="prevMonth" type="button">‹ Previous</button>
+    <button class="button" id="nextMonth" type="button">Next ›</button>
+    <button class="button" id="addMonth" type="button">＋ New month</button>
+    <span class="spacer"></span>
+    <button class="button" id="exportXlsx" type="button">Export XLSX</button>
+    <label class="button import-label" for="xlsxInput">Import XLSX</label>
+    <input id="xlsxInput" type="file" accept=".xlsx,.xls">
+    <button class="button" id="generateButton" type="button">Generate 90 days</button>
+    <button class="button" id="printButton" type="button">Print month</button>
+  </div>
+
+  <section class="top-grid">
+    <div class="card overview">
+      <div class="card-heading"><h2>Selected shift overview</h2><span id="overviewDate" class="muted"></span></div>
+      <div class="stats">
+        <div class="stat"><strong id="scheduledStat">0</strong><span>Work entries this month</span></div>
+        <div class="stat"><strong id="workingStat">0</strong><span>Working today</span></div>
+        <div class="stat"><strong id="offStat">0</strong><span>Off / holiday today</span></div>
+        <div class="stat"><strong id="hoursStat">0</strong><span>Hours this month</span></div>
+        <div class="stat"><strong id="employeeStat">0</strong><span>Employees</span></div>
+      </div>
+    </div>
+
+    <section class="card people-panel" id="peoplePanel">
+      <div class="card-heading"><h2>Employees</h2><span class="muted" id="peopleCount">0 people</span></div>
+      <div class="people-list" id="peopleList"></div>
+      <form class="add-person" id="addPersonForm">
+        <input class="input" id="newEmployee" maxlength="60" placeholder="Add employee name" required>
+        <button class="button primary">Add</button>
+      </form>
+    </section>
+  </section>
+
+  <section class="card roster-card" id="rosterCard">
+    <div class="roster-toolbar">
+      <strong class="month-title" id="monthTitle"></strong>
+      <span class="sheet-range" id="monthDetails"></span>
+      <span class="spacer"></span>
+      <button class="button small danger no-print" id="deleteMonth" type="button">Delete month</button>
+    </div>
+    <nav class="shift-tabs" id="shiftTabs" aria-label="Shift sheets"></nav>
+    <div class="shift-info" id="shiftInfo"></div>
+    <div class="table-scroll" id="rosterTable"></div>
+  </section>
+
+  <section class="bottom-grid no-print">
+    <section class="card bottom-card" id="entryPanel">
+      <div class="card-heading">
+        <h2>Add or edit an individual shift entry</h2>
+        <span class="muted">Choose the employee, date, and shift</span>
+      </div>
+      <form class="form-row" id="entryForm">
+        <select class="select" id="entryEmployee" required></select>
+        <select class="select" id="entryShift" required aria-label="Shift for this entry"></select>
+        <input class="input" id="entryDate" type="date" required>
+        <select class="select" id="entryType">
+          <option value="work">Work</option>
+          <option value="off">Day off</option>
+          <option value="holiday">Holiday</option>
+          <option value="note">Note</option>
+        </select>
+        <input class="input" id="entryDetails" placeholder="Details / note">
+        <button class="button primary">Add entry</button>
+      </form>
+      <p class="hint">Choose any shift for one day without changing the employee’s normal shift. Click a populated cell to edit or delete it.</p>
+    </section>
+
+    <section class="card bottom-card" id="shiftManagement">
+      <div class="card-heading"><h2>Shift sheets &amp; times</h2><span class="muted">Each shift has independent hours</span></div>
+      <form class="form-row" id="addShiftForm">
+        <input class="input" id="newShiftName" placeholder="Shift name" maxlength="40" required>
+        <select class="select" id="newShiftKind">
+          <option value="day">Day shift</option><option value="night">Night shift</option>
+        </select>
+        <input class="input" id="newShiftStart" type="time" value="08:00" aria-label="Start time">
+        <input class="input" id="newShiftEnd" type="time" value="16:00" aria-label="End time">
+        <button class="button">Add shift tab</button>
+      </form>
+      <div class="shift-list" id="shiftList" style="margin-top:9px"></div>
+      <p class="hint">Overnight shift hours are supported.</p>
+    </section>
+  </section>
+</main>
+</div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-database.js";
+
+const firebaseConfig={
+  apiKey:"AIzaSyB8ByrOZLPWdlk1-fi6m3LIdeIF573YZ90",
+  authDomain:"shift-management-75b87.firebaseapp.com",
+  databaseURL:"https://shift-management-75b87-default-rtdb.firebaseio.com/",
+  projectId:"shift-management-75b87",
+  storageBucket:"shift-management-75b87.firebasestorage.app",
+  messagingSenderId:"163682952292",
+  appId:"1:163682952292:web:9932b0f716f163b2f2eb71",
+  measurementId:"G-XJ6YY4QZPN"
+};
+const DATA_PATH="rosterFlow/shared";
+
+const workbookEmployees=[
+  {name:"AMDADUL HOQUE MOZUMDER",iqamaNo:"2515561989",kind:"day"},
+  {name:"IRFAN ULLAH",iqamaNo:"2425316623",kind:"day"},
+  {name:"AAMIR SOHIL",iqamaNo:"2507665665",kind:"day"},
+  {name:"GHANSHYAM",iqamaNo:"2544852227",kind:"day"},
+  {name:"MISBAH",iqamaNo:"2579109279",kind:"day"},
+  {name:"SAHID KHAN BISMILLAH",iqamaNo:"2529825784",kind:"day"},
+  {name:"CHANDER KOLI",iqamaNo:"2519041004",kind:"day"},
+  {name:"NARESH ROY",iqamaNo:"2544852672",kind:"day"},
+  {name:"RAJESH RANJAN",iqamaNo:"2555524434",kind:"day"},
+  {name:"MUHAMMAD MENHAJ",iqamaNo:"2526854738",kind:"day"},
+  {name:"NOOR ZAMAN",iqamaNo:"2513605523",kind:"day"},
+  {name:"ZOHIB ELVIN MASIH",iqamaNo:"2435071457",kind:"day"},
+  {name:"UMAIR ALVEN",iqamaNo:"2479573202",kind:"night"},
+  {name:"HAROOM TARIQ",iqamaNo:"2549492375",kind:"night"},
+  {name:"ABU TAHER",iqamaNo:"2443933144",kind:"night"},
+  {name:"ABDUL KALAM ABDUL VAHAB",iqamaNo:"2540026750",kind:"night"},
+  {name:"MUHAMMAD SHAHBAZ ALLAH",iqamaNo:"2461800415",kind:"night"},
+  {name:"AKSHAY KOLOTHUM",iqamaNo:"2562820577",kind:"night"},
+  {name:"HASSAN ZAHOOR",iqamaNo:"2529283331",kind:"night"},
+  {name:"MUHAMMAD SADDAM BARYA",iqamaNo:"2557791403",kind:"night"},
+  {name:"MASSAB FIDA HUSSAIN",iqamaNo:"2506147285",kind:"night"},
+  {name:"SAYED KHALEEL HUSSAIN",iqamaNo:"2588241873",kind:"night"},
+  {name:"ABU BAKAR",iqamaNo:"",kind:"night"},
+  {name:"OKTAY ASLANOV",iqamaNo:"2507665665",kind:"night"}
+];
+
+const today=new Date();today.setHours(0,0,0,0);
+const todayISO=toISO(today);
+
+function defaultState(){
+  const shifts=[
+    {id:"day-default",name:"Day shift",kind:"day",start:"12:00",end:"00:00"},
+    {id:"night-default",name:"Night shift",kind:"night",start:"00:00",end:"12:00"}
+  ];
+  const employees=workbookEmployees.map(({name,iqamaNo,kind})=>({name,iqamaNo,shiftKind:kind}));
+  const november={id:"month-2026-11",month:"2026-11",entries:[]};
+
+  // The supplied workbook records "O" on November 1 for all listed employees.
+  for(const employee of employees){
+    const shift=shifts.find(item=>item.kind===employee.shiftKind);
+    november.entries.push({
+      id:makeId(),employee:employee.name,date:"2026-11-01",
+      shiftId:shift.id,type:"off",details:"Imported from roster-2026-11 (5).xlsx",
+      hours:0
+    });
+  }
+
+  return{
+    employees,shifts,months:[november,{id:"month-"+monthKey(today),month:monthKey(today),entries:[]}],
+    company:""
+  };
+}
+
+let state=defaultState();
+let selectedMonthId=state.months.find(month=>month.month===monthKey(today))?.id||state.months[0].id;
+let selectedShiftId=state.shifts[0].id;
+let db,syncingFromFirebase=false,writing=false,queuedWrite=false,saveTimer;
+const $=id=>document.getElementById(id);
+
+function toISO(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`}
+function monthKey(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`}
+function monthStart(key){const [year,month]=key.split("-").map(Number);return new Date(year,month-1,1)}
+function monthLabel(key){return new Intl.DateTimeFormat(undefined,{month:"long",year:"numeric"}).format(monthStart(key))}
+function makeId(){return crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`}
+function safe(value){return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]))}
+function selectedMonth(){return state.months.find(month=>month.id===selectedMonthId)||state.months[0]}
+function selectedShift(){return state.shifts.find(shift=>shift.id===selectedShiftId)||state.shifts[0]}
+function setStatus(text,kind=""){$("connectionStatus").textContent=text;$("connectionStatus").className=`connection ${kind}`}
+function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove("show"),3200)}
+
+function normalize(raw){
+  if(!raw||typeof raw!=="object")return defaultState();
+  const result={
+    employees:Array.isArray(raw.employees)?raw.employees.map(employee=>{
+      if(typeof employee==="string")return{name:employee,iqamaNo:"",shiftKind:""};
+      return{name:String(employee?.name??""),iqamaNo:String(employee?.iqamaNo??employee?.iqama??""),shiftKind:String(employee?.shiftKind??"")};
+    }).filter(employee=>employee.name):[],
+    shifts:Array.isArray(raw.shifts)?raw.shifts:[],
+    months:Array.isArray(raw.months)?raw.months:[],
+    company:typeof raw.company==="string"?raw.company:""
+  };
+  if(!result.shifts.length)result.shifts=defaultState().shifts;
+  if(!result.months.length)result.months=defaultState().months;
+  result.months.forEach(month=>{
+    if(!Array.isArray(month.entries))month.entries=[];
+    month.entries.forEach(entry=>{
+      if(!entry.id)entry.id=makeId();
+      if(!entry.type)entry.type="work";
+      if(!entry.details)entry.details="";
+    });
+  });
+  return result;
+}
+function changed(message){persist();renderAll();if(message)toast(message)}
+function persist(){if(syncingFromFirebase||!db)return;clearTimeout(saveTimer);saveTimer=setTimeout(writeFirebase,250)}
+async function writeFirebase(){
+  if(!db)return;
+  if(writing){queuedWrite=true;return}
+  writing=true;
+  try{await set(ref(db,DATA_PATH),JSON.parse(JSON.stringify(state)));setStatus("Firebase synced","online")}
+  catch(error){console.error(error);setStatus("Sync error","error");toast("Firebase save failed. Check database access rules.")}
+  finally{writing=false;if(queuedWrite){queuedWrite=false;writeFirebase()}}
+}
+function ensureMonth(date){
+  const key=monthKey(date);let month=state.months.find(item=>item.month===key);
+  if(!month){month={id:"month-"+key,month:key,entries:[]};state.months.push(month)}
+  selectedMonthId=month.id;return month;
+}
+function shiftHours(shift){
+  const [sh,sm]=(shift.start||"08:00").split(":").map(Number);
+  const [eh,em]=(shift.end||"16:00").split(":").map(Number);
+  let minutes=eh*60+em-(sh*60+sm);if(minutes<=0)minutes+=1440;
+  return Math.round(minutes/60*2)/2;
+}
+
+function renderPeople(){
+  $("peopleCount").textContent=`${state.employees.length} ${state.employees.length===1?"person":"people"}`;
+  $("peopleList").innerHTML=state.employees.map((employee,index)=>`
+    <div class="person-row"><span class="dot"></span>
+      <span class="person-name" title="${safe(employee.name)}">${safe(employee.name)}</span>
+      <span class="muted" title="Usual shift">${safe(employee.shiftKind||"Any")}</span>
+      <span class="muted" title="Iqama No">${safe(employee.iqamaNo||"No Iqama")}</span>
+      <button class="tiny edit-person" data-index="${index}" type="button">Edit</button>
+      <button class="tiny delete-person" data-index="${index}" type="button">×</button>
+    </div>`).join("")||'<span class="muted">No employees yet.</span>';
+
+  document.querySelectorAll(".edit-person").forEach(button=>button.onclick=()=>{
+    const employee=state.employees[Number(button.dataset.index)];
+    const name=prompt("Employee name:",employee.name);if(name===null)return;
+    if(!name.trim())return toast("Name cannot be blank.");
+    const iqama=prompt("Iqama No:",employee.iqamaNo||"");if(iqama===null)return;
+    const oldName=employee.name;employee.name=name.trim();employee.iqamaNo=iqama.trim();
+    state.months.forEach(month=>month.entries.forEach(entry=>{if(entry.employee===oldName)entry.employee=employee.name}));
+    changed("Employee updated.");
+  });
+
+  document.querySelectorAll(".delete-person").forEach(button=>button.onclick=()=>{
+    const employee=state.employees[Number(button.dataset.index)];
+    if(!confirm(`Remove ${employee.name} from the employee list? Existing entries remain.`))return;
+    state.employees=state.employees.filter(item=>item!==employee);changed("Employee removed.");
+  });
+
+  const select=$("entryEmployee"),prior=select.value;
+  select.innerHTML='<option value="">Choose employee</option>'+state.employees.map(employee=>
+    `<option value="${safe(employee.name)}">${safe(employee.name)}</option>`).join("");
+  if(state.employees.some(employee=>employee.name===prior))select.value=prior;
+}
+function renderMonthSelect(){
+  $("monthSelect").innerHTML=state.months.slice().sort((a,b)=>a.month.localeCompare(b.month))
+    .map(month=>`<option value="${safe(month.id)}">${safe(monthLabel(month.month))}</option>`).join("");
+  $("monthSelect").value=selectedMonthId;
+}
+function renderEntryShiftSelect(){
+  const select=$("entryShift"),previous=select.value;
+  select.innerHTML=state.shifts.map(shift=>
+    `<option value="${safe(shift.id)}">${safe(shift.name)} (${safe(shift.start)}–${safe(shift.end)})</option>`).join("");
+  select.value=state.shifts.some(shift=>shift.id===previous)?previous:(selectedShift()?.id||"");
+}
+function renderShiftTabs(){
+  $("shiftTabs").innerHTML=state.shifts.map(shift=>
+    `<button class="shift-tab ${shift.id===selectedShiftId?"active":""}" data-shift="${safe(shift.id)}" type="button">${safe(shift.name)}</button>`
+  ).join("")+'<button class="shift-tab add" id="addShiftTab" type="button">＋ Add shift</button>';
+  document.querySelectorAll("[data-shift]").forEach(button=>button.onclick=()=>{selectedShiftId=button.dataset.shift;renderAll()});
+  $("addShiftTab").onclick=()=>$("newShiftName").focus();
+}
+function renderShiftManager(){
+  $("shiftList").innerHTML=state.shifts.map(shift=>`
+    <div class="shift-manage-row" data-id="${safe(shift.id)}">
+      <input class="input shift-name-field" data-field="name" value="${safe(shift.name)}" aria-label="Shift name">
+      <select class="select" data-field="kind" aria-label="Shift type">
+        <option value="day" ${shift.kind==="day"?"selected":""}>Day</option>
+        <option value="night" ${shift.kind==="night"?"selected":""}>Night</option>
+      </select>
+      <input class="input" type="time" data-field="start" value="${safe(shift.start)}" aria-label="Start time">
+      <input class="input" type="time" data-field="end" value="${safe(shift.end)}" aria-label="End time">
+      <button class="button small danger delete-shift" type="button">Delete</button>
+    </div>`).join("")||'<span class="muted">Add a shift to create its sheet.</span>';
+
+  $("shiftList").querySelectorAll(".shift-manage-row").forEach(row=>{
+    row.querySelectorAll("[data-field]").forEach(input=>input.addEventListener("change",()=>{
+      const shift=state.shifts.find(item=>item.id===row.dataset.id);if(!shift)return;
+      shift[input.dataset.field]=input.value.trim();
+      if(input.dataset.field==="name"&&!shift.name)shift.name="Shift";
+      changed("Shift saved.");
+    }));
+  });
+  document.querySelectorAll(".delete-shift").forEach(button=>button.onclick=()=>{
+    const row=button.closest(".shift-manage-row"),shift=state.shifts.find(item=>item.id===row.dataset.id);
+    if(state.shifts.length<=1)return toast("At least one shift must remain.");
+    if(!confirm(`Delete "${shift.name}" and its entries?`))return;
+    state.shifts=state.shifts.filter(item=>item.id!==shift.id);
+    state.months.forEach(month=>month.entries=month.entries.filter(entry=>entry.shiftId!==shift.id));
+    selectedShiftId=state.shifts[0].id;changed("Shift deleted.");
+  });
+}
+
+function renderRoster(){
+  const month=selectedMonth(),shift=selectedShift();if(!month||!shift)return;
+  const start=monthStart(month.month),days=new Date(start.getFullYear(),start.getMonth()+1,0).getDate();
+  const monthEntries=month.entries.filter(entry=>entry.shiftId===shift.id);
+  $("monthTitle").textContent=monthLabel(month.month);
+  $("monthDetails").textContent=`${monthEntries.length} entries · ${days} days`;
+  $("shiftInfo").innerHTML=`<strong>${safe(shift.name)}</strong><span>${shift.kind==="night"?"Night":"Day"} shift</span><span>${safe(shift.start)}–${safe(shift.end)}</span><span>${shiftHours(shift)} hours per work entry</span>`;
+
+  const employeeNames=[...new Set([
+    ...state.employees.filter(employee=>!employee.shiftKind||employee.shiftKind===shift.kind).map(employee=>employee.name),
+    ...monthEntries.map(entry=>entry.employee).filter(Boolean)
+  ])].sort((a,b)=>a.localeCompare(b));
+
+  if(!employeeNames.length){$("rosterTable").innerHTML='<div class="empty">No employees for this shift.</div>';renderOverview();return}
+
+  let html='<table><thead><tr><th class="sticky-name">Employee</th><th class="sticky-iqama thead-iqama">Iqama No</th>';
+  for(let day=1;day<=days;day++){
+    const date=new Date(start.getFullYear(),start.getMonth(),day),iso=toISO(date);
+    const weekend=date.getDay()===0||date.getDay()===6;
+    const weekday=new Intl.DateTimeFormat(undefined,{weekday:"short"}).format(date);
+    html+=`<th class="date-heading ${weekend?"weekend":""} ${iso===todayISO?"today":""}">${day}<br><small>${safe(weekday)}</small></th>`;
+  }
+  html+="</tr></thead><tbody>";
+
+  for(const employee of employeeNames){
+    const employeeRecord=state.employees.find(item=>item.name===employee);
+    html+=`<tr><td class="sticky-name">${safe(employee)}</td><td class="sticky-iqama">${safe(employeeRecord?.iqamaNo||"")}</td>`;
+    for(let day=1;day<=days;day++){
+      const date=toISO(new Date(start.getFullYear(),start.getMonth(),day));
+      const entries=monthEntries.filter(entry=>entry.employee===employee&&entry.date===date);
+      const dateObj=new Date(start.getFullYear(),start.getMonth(),day);
+      const weekend=dateObj.getDay()===0||dateObj.getDay()===6;
+      const pills=entries.map(entry=>{
+        const type=entry.type||"work";
+        const klass=type==="off"?"off":type==="holiday"?"holiday":type==="note"?"note":shift.kind==="night"?"night":"";
+        const label=type==="off"?"OFF":type==="holiday"?"HOLIDAY":type==="note"?"NOTE":shift.name;
+        const display=entry.details?`${label}: ${entry.details}`:label;
+        return `<span class="cell-pill ${klass}" title="${safe(display)}">${safe(display)}</span>`;
+      }).join("<br>");
+      html+=`<td class="${weekend?"weekend":""} ${date===todayISO?"today":""}" data-date="${date}" data-employee="${safe(employee)}" title="Click to add, edit, or delete">${pills||"·"}</td>`;
+    }
+    html+="</tr>";
+  }
+  html+="</tbody></table>";$("rosterTable").innerHTML=html;
+
+  $("rosterTable").querySelectorAll("td[data-date]").forEach(cell=>cell.onclick=()=>{
+    const entries=monthEntries.filter(entry=>entry.employee===cell.dataset.employee&&entry.date===cell.dataset.date);
+    if(entries.length){
+      const entry=entries[0];
+      const action=prompt(
+        `${entry.employee} — ${entry.date}\n${String(entry.type||"work").toUpperCase()} on ${shift.name}\n\nType EDIT to change, DELETE to remove, or Cancel.`,
+        "EDIT"
+      );
+      if(action===null)return;
+      if(action.trim().toLowerCase()==="delete"){
+        month.entries=month.entries.filter(item=>item.id!==entry.id);
+        return changed("Entry deleted.");
+      }
+      if(action.trim().toLowerCase()==="edit"){
+        const date=prompt("Date (YYYY-MM-DD):",entry.date);if(date===null)return;
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(date.trim()))return toast("Enter date as YYYY-MM-DD.");
+        const typeAnswer=prompt("Type: work, off, holiday, or note",entry.type||"work");
+        if(typeAnswer===null)return;
+        const type=typeAnswer.trim().toLowerCase();
+        if(!["work","off","holiday","note"].includes(type))return toast("Invalid entry type.");
+        const shiftList=state.shifts.map((item,index)=>`${index+1}. ${item.name}`).join("\n");
+        const currentIndex=state.shifts.findIndex(item=>item.id===entry.shiftId);
+        const shiftAnswer=prompt(`Choose shift number:\n${shiftList}`,String(currentIndex+1));
+        if(shiftAnswer===null)return;
+        const newShift=state.shifts[Number(shiftAnswer)-1];
+        if(!newShift)return toast("Invalid shift number.");
+        const details=prompt("Details / note:",entry.details||"");if(details===null)return;
+
+        const targetMonth=ensureMonth(new Date(`${date.trim()}T12:00:00`));
+        month.entries=month.entries.filter(item=>item.id!==entry.id);
+        entry.date=date.trim();entry.shiftId=newShift.id;entry.type=type;
+        entry.details=details.trim();entry.hours=type==="work"?shiftHours(newShift):0;
+        targetMonth.entries.push(entry);
+        selectedShiftId=newShift.id;
+        return changed("Entry updated.");
+      }
+    }
+
+    $("entryEmployee").value=cell.dataset.employee;
+    $("entryDate").value=cell.dataset.date;
+    $("entryShift").value=selectedShiftId;
+    $("entryType").value="work";
+    $("entryDetails").value="";
+    $("entryPanel").scrollIntoView({behavior:"smooth",block:"center"});
+    $("entryDetails").focus();
+  });
+  renderOverview();
+}
+function renderOverview(){
+  const month=selectedMonth(),shift=selectedShift();if(!month||!shift)return;
+  const entries=month.entries.filter(entry=>entry.shiftId===shift.id);
+  const work=entries.filter(entry=>(entry.type||"work")==="work");
+  const todayWork=work.filter(entry=>entry.date===todayISO);
+  const todayOff=entries.filter(entry=>entry.date===todayISO&&(entry.type==="off"||entry.type==="holiday"));
+  $("scheduledStat").textContent=work.length;
+  $("workingStat").textContent=new Set(todayWork.map(entry=>entry.employee)).size;
+  $("offStat").textContent=new Set(todayOff.map(entry=>entry.employee)).size;
+  $("hoursStat").textContent=work.reduce((sum,entry)=>sum+Number(entry.hours||shiftHours(shift)),0);
+  $("employeeStat").textContent=state.employees.length;
+  $("overviewDate").textContent=`${shift.name} · ${todayISO}`;
+}
+function renderAll(){
+  if(!state.months.some(month=>month.id===selectedMonthId))selectedMonthId=state.months[0].id;
+  if(!state.shifts.some(shift=>shift.id===selectedShiftId))selectedShiftId=state.shifts[0].id;
+  renderPeople();renderMonthSelect();renderShiftTabs();renderEntryShiftSelect();renderShiftManager();renderRoster();
+}
+
+$("addPersonForm").addEventListener("submit",event=>{
+  event.preventDefault();const name=$("newEmployee").value.trim();if(!name)return;
+  if(state.employees.some(employee=>employee.name.toLowerCase()===name.toLowerCase()))return toast("Employee already exists.");
+  const iqamaNo=prompt("Enter Iqama No (optional):","")??"";
+  state.employees.push({name,iqamaNo:iqamaNo.trim(),shiftKind:selectedShift()?.kind||""});
+  state.employees.sort((a,b)=>a.name.localeCompare(b.name));$("newEmployee").value="";
+  changed("Employee added.");
+});
+$("monthSelect").addEventListener("change",()=>{selectedMonthId=$("monthSelect").value;renderAll()});
+function changeMonth(amount){
+  const date=monthStart(selectedMonth().month);date.setMonth(date.getMonth()+amount);
+  const key=monthKey(date);let month=state.months.find(item=>item.month===key);
+  if(!month){month={id:"month-"+key,month:key,entries:[]};state.months.push(month)}
+  selectedMonthId=month.id;changed();
+}
+$("prevMonth").onclick=()=>changeMonth(-1);
+$("nextMonth").onclick=()=>changeMonth(1);
+$("addMonth").onclick=()=>{changeMonth(1);toast("Monthly sheet opened.")};
+$("deleteMonth").onclick=()=>{
+  if(state.months.length<=1)return toast("At least one month must remain.");
+  const month=selectedMonth();if(!confirm(`Delete ${monthLabel(month.month)} and all its entries?`))return;
+  state.months=state.months.filter(item=>item.id!==month.id);selectedMonthId=state.months[0].id;changed("Month deleted.");
+};
+$("addShiftForm").addEventListener("submit",event=>{
+  event.preventDefault();const name=$("newShiftName").value.trim();if(!name)return;
+  const shift={id:makeId(),name,kind:$("newShiftKind").value,start:$("newShiftStart").value||"08:00",end:$("newShiftEnd").value||"16:00"};
+  state.shifts.push(shift);selectedShiftId=shift.id;$("newShiftName").value="";changed("Shift tab added.");
+});
+$("entryForm").addEventListener("submit",event=>{
+  event.preventDefault();
+  const employee=$("entryEmployee").value,date=$("entryDate").value;
+  if(!employee)return toast("Choose an employee.");
+  if(!date)return toast("Choose a date.");
+  const shift=state.shifts.find(item=>item.id===$("entryShift").value);
+  if(!shift)return toast("Choose a shift.");
+  const month=ensureMonth(new Date(`${date}T12:00:00`));
+  const type=$("entryType").value;
+  month.entries.push({
+    id:makeId(),employee,date,shiftId:shift.id,type,
+    details:$("entryDetails").value.trim(),hours:type==="work"?shiftHours(shift):0
+  });
+  selectedShiftId=shift.id;$("entryDetails").value="";
+  changed("Shift entry added.");
+});
+
+$("generateButton").addEventListener("click",()=>{
+  if(!state.employees.length)return toast("Add employees first.");
+  const workDays=Number(prompt("Consecutive workdays?","7"));
+  if(!Number.isInteger(workDays)||workDays<1||workDays>30)return toast("Enter 1–30 workdays.");
+  const restDays=Number(prompt("Days off after each work period?","2"));
+  if(!Number.isInteger(restDays)||restDays<1||restDays>30)return toast("Enter 1–30 days off.");
+  const dayShifts=state.shifts.filter(shift=>shift.kind==="day");
+  const nightShifts=state.shifts.filter(shift=>shift.kind==="night");
+  if(!dayShifts.length||!nightShifts.length)return toast("Add at least one day and night shift.");
+  const start=monthStart(selectedMonth().month),cycle=workDays+restDays;
+
+  for(let offset=0;offset<90;offset++){
+    const dateObj=new Date(start);dateObj.setDate(start.getDate()+offset);
+    const date=toISO(dateObj),key=monthKey(dateObj);
+    let month=state.months.find(item=>item.month===key);
+    if(!month){month={id:"month-"+key,month:key,entries:[]};state.months.push(month)}
+    state.employees.forEach((employee,index)=>{
+      if(month.entries.some(entry=>entry.employee===employee.name&&entry.date===date))return;
+      const position=(offset+index*workDays)%cycle;
+      const pool=employee.shiftKind==="night"?nightShifts:dayShifts;
+      const shift=pool[index%pool.length];
+      const type=position>=workDays?"off":"work";
+      month.entries.push({id:makeId(),employee:employee.name,date,shiftId:shift.id,type,details:"Auto-generated",hours:type==="work"?shiftHours(shift):0});
+    });
+  }
+  changed(`Generated a 90-day ${workDays}-on / ${restDays}-off roster.`);
+});
+
+$("exportXlsx").addEventListener("click",()=>{
+  if(!window.XLSX)return toast("Excel library did not load.");
+  const month=selectedMonth();if(!month)return;
+  const start=monthStart(month.month),days=new Date(start.getFullYear(),start.getMonth()+1,0).getDate();
+  const workbook=XLSX.utils.book_new();
+
+  for(const shift of state.shifts){
+    const rows=[[`${shift.name} — ${monthLabel(month.month)}`],[`Shift: ${shift.name}`,`Time: ${shift.start}–${shift.end}`,`Month: ${month.month}`],[],["Employee","Iqama No",...Array.from({length:days},(_,i)=>i+1)]];
+    const names=[...new Set([...state.employees.map(e=>e.name),...month.entries.map(e=>e.employee)])].filter(Boolean).sort();
+    names.forEach(name=>{
+      const employee=state.employees.find(item=>item.name===name),row=[name,employee?.iqamaNo||""];
+      for(let day=1;day<=days;day++){
+        const date=toISO(new Date(start.getFullYear(),start.getMonth(),day));
+        row.push(month.entries.filter(entry=>entry.employee===name&&entry.date===date&&entry.shiftId===shift.id).map(entry=>{
+          const label=entry.type==="off"?"OFF":entry.type==="holiday"?"HOLIDAY":entry.type==="note"?"NOTE":shift.name;
+          return entry.details?`${label}: ${entry.details}`:label;
+        }).join(" | "));
+      }
+      rows.push(row);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"]=[{wch:28},{wch:18},...Array.from({length:days},()=>({wch:15}))];
+    const sheetName=shift.name.replace(/[\\/*?:[\]]/g," ").slice(0,31)||"Shift";
+    XLSX.utils.book_append_sheet(workbook,ws,sheetName);
+  }
+
+  const details=[["Date","Employee","Iqama No","Shift","Type","Start","End","Hours","Details"]];
+  month.entries.forEach(entry=>{
+    const shift=state.shifts.find(item=>item.id===entry.shiftId),employee=state.employees.find(item=>item.name===entry.employee);
+    details.push([entry.date,entry.employee,employee?.iqamaNo||"",shift?.name||"",entry.type||"work",shift?.start||"",shift?.end||"",entry.hours??"",entry.details||""]);
+  });
+  XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(details),"Entry Details");
+  XLSX.writeFile(workbook,`roster-${month.month}.xlsx`);toast("Excel workbook downloaded.");
+});
+
+$("xlsxInput").addEventListener("change",async event=>{
+  const file=event.target.files?.[0];if(!file)return;
+  try{
+    if(!window.XLSX)throw new Error("Excel library did not load.");
+    const workbook=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
+    let added=0;
+    const key=value=>String(value??"").trim().toLowerCase();
+    const parseDate=value=>{
+      if(value instanceof Date&&!Number.isNaN(value.getTime()))return toISO(value);
+      if(typeof value==="number"){
+        const d=XLSX.SSF.parse_date_code(value);
+        return d?.y?`${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`:"";
+      }
+      const text=String(value??"").trim();
+      const iso=text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if(iso)return `${iso[1]}-${String(iso[2]).padStart(2,"0")}-${String(iso[3]).padStart(2,"0")}`;
+      const dmy=text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+      return dmy?`${dmy[3]}-${String(dmy[2]).padStart(2,"0")}-${String(dmy[1]).padStart(2,"0")}`:"";
+    };
+    const get=(row,...headers)=>{
+      const wanted=headers.map(key),actual=Object.keys(row).find(h=>wanted.includes(key(h)));
+      return actual?row[actual]:"";
+    };
+    const addEmployee=(name,iqama,kind)=>{
+      let employee=state.employees.find(item=>item.name.toLowerCase()===name.toLowerCase());
+      if(!employee){employee={name,iqamaNo:String(iqama||"").trim(),shiftKind:kind||""};state.employees.push(employee)}
+      else{if(iqama)employee.iqamaNo=String(iqama).trim();if(kind&&!employee.shiftKind)employee.shiftKind=kind}
+    };
+    const findShift=(name,start,end,kind)=>{
+      let shift=state.shifts.find(item=>item.name.toLowerCase()===name.toLowerCase());
+      if(!shift){shift={id:makeId(),name,kind:kind||(/night/i.test(name)?"night":"day"),start:start||"08:00",end:end||"16:00"};state.shifts.push(shift)}
+      else{if(start)shift.start=start;if(end)shift.end=end}
+      return shift;
+    };
+    const addEntry=(name,iqama,date,shift,type,details,hours)=>{
+      if(!name||!date||!shift)return;
+      addEmployee(name,iqama,shift.kind);
+      const month=ensureMonth(new Date(`${date}T12:00:00`));
+      if(month.entries.some(e=>e.employee.toLowerCase()===name.toLowerCase()&&e.date===date&&e.shiftId===shift.id&&(e.type||"work")===type&&String(e.details||"")===String(details||"").trim()))return;
+      const parsedHours=Number(hours);
+      month.entries.push({id:makeId(),employee:name,date,shiftId:shift.id,type,details:String(details||"").trim(),hours:Number.isFinite(parsedHours)&&parsedHours>0?parsedHours:type==="work"?shiftHours(shift):0});
+      added++;
+    };
+
+    const detailsName=workbook.SheetNames.find(name=>key(name)==="entry details");
+    if(detailsName){
+      const rows=XLSX.utils.sheet_to_json(workbook.Sheets[detailsName],{defval:"",raw:true});
+      rows.forEach(row=>{
+        const name=String(get(row,"Employee","Employee Name","Name")).trim();if(!name)return;
+        const iqama=get(row,"Iqama No","Iqama Number","Iqama");
+        const date=parseDate(get(row,"Date"));
+        const shiftName=String(get(row,"Shift","Shift Name")||"Day shift").trim();
+        const start=String(get(row,"Start","Start Time")||"");
+        const end=String(get(row,"End","End Time")||"");
+        const shift=findShift(shiftName,start,end);
+        if(!date){addEmployee(name,iqama,shift.kind);return}
+        const text=String(get(row,"Type","Status")||"work").toLowerCase();
+        const type=text.includes("holiday")?"holiday":text==="off"||text==="o"||text.includes("day off")?"off":text==="note"?"note":"work";
+        addEntry(name,iqama,date,shift,type,get(row,"Details","Notes","Note"),get(row,"Hours"));
+      });
+    }else{
+      for(const sheetName of workbook.SheetNames){
+        const matrix=XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{header:1,defval:"",raw:true});
+        const headerIndex=matrix.findIndex(row=>{
+          const cells=row.map(key);
+          return cells.includes("employee")&&(cells.includes("iqama no")||cells.includes("iqama number")||cells.includes("iqama"));
+        });
+        if(headerIndex<0)continue;
+        const headers=matrix[headerIndex].map(String);
+        const empCol=headers.findIndex(h=>key(h)==="employee");
+        const iqamaCol=headers.findIndex(h=>["iqama no","iqama number","iqama"].includes(key(h)));
+        const title=String(matrix[0]?.[0]||sheetName).trim();
+        const shiftName=title.split(" — ")[0].trim()||sheetName;
+        const meta=matrix.slice(0,headerIndex).flat().join(" ");
+        const time=meta.match(/Time:\s*(\d{2}:\d{2})\s*[–-]\s*(\d{2}:\d{2})/i);
+        const shift=findShift(shiftName,time?.[1],time?.[2]);
+        let ym=meta.match(/\b(20\d{2})-(\d{1,2})\b/);
+        let monthKeyValue=ym?`${ym[1]}-${String(Number(ym[2])).padStart(2,"0")}`:selectedMonth().month;
+        const [year,monthNum]=monthKeyValue.split("-").map(Number),maxDay=new Date(year,monthNum,0).getDate();
+        const dayColumns=headers.map((h,i)=>({day:Number(h),i})).filter(x=>Number.isInteger(x.day)&&x.day>=1&&x.day<=31);
+
+        for(const row of matrix.slice(headerIndex+1)){
+          const name=String(row[empCol]||"").trim();if(!name)continue;
+          const iqama=iqamaCol>=0?String(row[iqamaCol]||"").trim():"";
+          addEmployee(name,iqama,shift.kind);
+          for(const col of dayColumns){
+            if(col.day>maxDay)continue;
+            const value=String(row[col.i]??"").trim();if(!value||value==="·")continue;
+            const upper=value.toUpperCase();
+            const type=upper==="O"||upper.startsWith("OFF")?"off":upper.startsWith("HOLIDAY")?"holiday":upper.startsWith("NOTE")?"note":"work";
+            const details=value.includes(":")?value.slice(value.indexOf(":")+1).trim():"";
+            const date=`${year}-${String(monthNum).padStart(2,"0")}-${String(col.day).padStart(2,"0")}`;
+            addEntry(name,iqama,date,shift,type,details,"");
+          }
+        }
+      }
+    }
+
+    if(!state.employees.length)throw new Error("No roster data was found.");
+    state.employees.sort((a,b)=>a.name.localeCompare(b.name));
+    changed(`Import complete: ${added} new entries added.`);
+  }catch(error){console.error(error);toast(`Import failed: ${error.message}`)}
+  finally{event.target.value=""}
+});
+
+$("printButton").onclick=()=>window.print();
+document.querySelectorAll(".rail [data-scroll]").forEach(button=>button.onclick=()=>{
+  document.getElementById(button.dataset.scroll).scrollIntoView({behavior:"smooth",block:"center"});
+});
+$("entryDate").value=todayISO;
+
+async function connectFirebase(){
+  try{
+    const app=initializeApp(firebaseConfig);db=getDatabase(app);
+    const dataRef=ref(db,DATA_PATH);
+    onValue(dataRef,async snapshot=>{
+      syncingFromFirebase=true;
+      try{
+        if(snapshot.val()){
+          state=normalize(snapshot.val());
+          if(!state.months.some(month=>month.id===selectedMonthId))selectedMonthId=state.months.find(month=>month.month===monthKey(today))?.id||state.months[0].id;
+          if(!state.shifts.some(shift=>shift.id===selectedShiftId))selectedShiftId=state.shifts[0].id;
+          renderAll();setStatus("Firebase synced","online");
+        }else{
+          state=defaultState();
+          selectedMonthId=state.months.find(month=>month.month===monthKey(today))?.id||state.months[0].id;
+          selectedShiftId=state.shifts[0].id;renderAll();
+          await set(dataRef,JSON.parse(JSON.stringify(state)));
+          setStatus("Firebase synced","online");
+        }
+      }catch(error){console.error(error);setStatus("Firebase error","error");toast("Could not load roster. Check Firebase rules.")}
+      finally{syncingFromFirebase=false}
+    },error=>{
+      console.error(error);syncingFromFirebase=false;setStatus("Firebase access error","error");
+      toast("Check Firebase database URL and security rules.");
+    });
+  }catch(error){console.error(error);setStatus("Firebase setup error","error");toast("Firebase initialization failed.")}
+}
+renderAll();
+connectFirebase();
+</script>
+</body>
+</html>
