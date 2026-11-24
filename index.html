@@ -71,7 +71,7 @@ thead .sticky-name,.thead-iqama{z-index:4;background:#13ad91}
 .toast{position:fixed;right:18px;bottom:18px;z-index:10;padding:11px 15px;color:#fff;background:#172744;border-radius:9px;box-shadow:var(--shadow);opacity:0;transform:translateY(6px);transition:.2s;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}.empty{padding:24px;text-align:center;color:var(--muted)}
 .import-label{display:inline-flex;align-items:center;justify-content:center}#xlsxInput{display:none}
-@media(max-width:900px){body{padding:10px}.top-grid{grid-template-columns:1fr}.people-panel{max-height:260px}}
+@media(max-width:900px){.top-grid{grid-template-columns:1fr}.people-panel{max-height:260px}}
 @media(max-width:600px){body{padding:0}.app{border-radius:0}.layout{grid-template-columns:38px minmax(0,1fr)}main{padding:9px}.rail{padding:9px 2px}.rail button{width:32px;height:32px}.stats{grid-template-columns:repeat(3,minmax(70px,1fr))}.bottom-grid{grid-template-columns:1fr}.shift-manage-row{grid-template-columns:1fr 1fr}.shift-manage-row .shift-name-field{grid-column:1/-1}}
 @page{size:A4 landscape;margin:8mm}
 @media print{
@@ -266,13 +266,8 @@ function defaultState(){
     shiftId:employee.kind==="night"?"night-default":"day-default"
   }));
 
-  const november={
-    id:"month-2026-11",
-    month:"2026-11",
-    entries:[]
-  };
+  const november={id:"month-2026-11",month:"2026-11",entries:[]};
 
-  // The source workbook contains O on November 1, so seed those entries as off.
   for(const employee of employees){
     november.entries.push({
       id:makeId(),
@@ -285,7 +280,6 @@ function defaultState(){
     });
   }
 
-  // The Entry Details sheet records IRFAN ULLAH working the night shift on Nov 23.
   november.entries.push({
     id:makeId(),
     employee:"IRFAN ULLAH",
@@ -371,20 +365,15 @@ function normalize(raw){
     :defaultState().shifts;
 
   let employees=Array.isArray(raw.employees)?raw.employees.map(employee=>{
-    if(typeof employee==="string"){
-      return{name:employee,iqamaNo:"",shiftId:""};
-    }
+    if(typeof employee==="string")return{name:employee,iqamaNo:"",shiftId:""};
 
     const name=String(employee?.name??"");
     let shiftId=String(employee?.shiftId??"");
 
-    // Migrate older saved employee records that used a shift kind.
     if(!shiftId&&employee?.shiftKind){
       const match=shifts.find(shift=>shift.kind===employee.shiftKind);
       if(match)shiftId=match.id;
     }
-
-    // Migrate older records that saved a shift name instead of shift ID.
     if(!shiftId&&employee?.shift){
       const match=shifts.find(shift=>shift.name===employee.shift);
       if(match)shiftId=match.id;
@@ -397,7 +386,6 @@ function normalize(raw){
     };
   }).filter(employee=>employee.name):[];
 
-  // If stored data has no employees, initialise from the supplied workbook roster.
   if(!employees.length){
     employees=workbookEmployees.map(employee=>({
       name:employee.name,
@@ -463,9 +451,7 @@ function ensureMonth(date){
 
 function renderPeople(){
   const shift=selectedShift();
-  const people=shift
-    ?state.employees.filter(employee=>employee.shiftId===shift.id)
-    :[];
+  const people=shift?state.employees.filter(employee=>employee.shiftId===shift.id):[];
 
   $("peopleHeading").textContent=shift
     ?`Employees — ${shift.name}`
@@ -485,9 +471,7 @@ function renderPeople(){
   $("peopleList").querySelectorAll(".edit-person").forEach(button=>{
     button.onclick=()=>{
       const oldName=button.dataset.name;
-      const employee=state.employees.find(item=>
-        item.name===oldName&&item.shiftId===selectedShiftId
-      );
+      const employee=state.employees.find(item=>item.name===oldName&&item.shiftId===selectedShiftId);
       if(!employee)return;
 
       const name=prompt("Employee name:",employee.name);
@@ -512,11 +496,8 @@ function renderPeople(){
 
   $("peopleList").querySelectorAll(".delete-person").forEach(button=>{
     button.onclick=()=>{
-      const employee=state.employees.find(item=>
-        item.name===button.dataset.name&&item.shiftId===selectedShiftId
-      );
+      const employee=state.employees.find(item=>item.name===button.dataset.name&&item.shiftId===selectedShiftId);
       if(!employee)return;
-
       if(!confirm(`Delete ${employee.name} and all their roster entries?`))return;
 
       const name=employee.name;
@@ -533,7 +514,6 @@ function renderPeople(){
   select.innerHTML='<option value="">Choose employee</option>'+people.map(employee=>
     `<option value="${safe(employee.name)}">${safe(employee.name)}</option>`
   ).join("");
-
   if(people.some(employee=>employee.name===previous))select.value=previous;
 }
 
@@ -551,9 +531,7 @@ function renderEntryShiftSelect(){
   select.innerHTML=state.shifts.map(shift=>
     `<option value="${safe(shift.id)}">${safe(shift.name)} (${safe(shift.start)}–${safe(shift.end)})</option>`
   ).join("");
-  select.value=state.shifts.some(shift=>shift.id===previous)
-    ?previous
-    :(selectedShift()?.id||"");
+  select.value=state.shifts.some(shift=>shift.id===previous)?previous:(selectedShift()?.id||"");
 }
 function renderShiftTabs(){
   $("shiftTabs").innerHTML=state.shifts.map(shift=>
@@ -566,7 +544,6 @@ function renderShiftTabs(){
       renderAll();
     };
   });
-
   $("addShiftTab").onclick=()=>$("newShiftName").focus();
 }
 function renderShiftManager(){
@@ -603,18 +580,12 @@ function renderShiftManager(){
       if(state.shifts.length<=1)return toast("At least one shift must remain.");
       if(!confirm(`Delete "${shift.name}", its assigned employees, and its entries?`))return;
 
-      const employeeNames=state.employees
-        .filter(employee=>employee.shiftId===shift.id)
-        .map(employee=>employee.name);
-
+      const employeeNames=state.employees.filter(employee=>employee.shiftId===shift.id).map(employee=>employee.name);
       state.employees=state.employees.filter(employee=>employee.shiftId!==shift.id);
       state.months.forEach(month=>{
-        month.entries=month.entries.filter(entry=>
-          entry.shiftId!==shift.id&&!employeeNames.includes(entry.employee)
-        );
+        month.entries=month.entries.filter(entry=>entry.shiftId!==shift.id&&!employeeNames.includes(entry.employee));
       });
       state.shifts=state.shifts.filter(item=>item.id!==shift.id);
-
       if(selectedShiftId===shift.id)selectedShiftId=state.shifts[0].id;
       changed("Shift, assigned employees, and entries deleted.");
     };
@@ -656,7 +627,6 @@ function renderRoster(){
     <span>${shiftHours(shift)} hours per work entry</span>
   `;
 
-  // Only personnel assigned to the currently selected shift appear here.
   const employeeNames=state.employees
     .filter(employee=>employee.shiftId===shift.id)
     .map(employee=>employee.name)
@@ -681,9 +651,7 @@ function renderRoster(){
   html+="</tr></thead><tbody>";
 
   for(const employeeName of employeeNames){
-    const employeeRecord=state.employees.find(item=>
-      item.name===employeeName&&item.shiftId===shift.id
-    );
+    const employeeRecord=state.employees.find(item=>item.name===employeeName&&item.shiftId===shift.id);
     const personEntries=monthEntries
       .filter(entry=>entry.employee===employeeName)
       .sort((a,b)=>a.date.localeCompare(b.date));
@@ -704,13 +672,18 @@ function renderRoster(){
       }).join("")}</div>`
       :"";
 
-    html+=`<tr><td class="sticky-name">${safe(employeeName)}${detailsList}</td><td class="sticky-iqama">${safe(employeeRecord?.iqamaNo||"")}</td>`;
+    html+=`<tr><td class="sticky-name">
+      ${safe(employeeName)}
+      <div class="employee-entry">
+        <button type="button" class="edit-roster-person" data-name="${safe(employeeName)}">Edit employee</button>
+        <button type="button" class="delete-roster-person" data-name="${safe(employeeName)}">Delete employee</button>
+      </div>
+      ${detailsList}
+    </td><td class="sticky-iqama">${safe(employeeRecord?.iqamaNo||"")}</td>`;
 
     for(let day=1;day<=days;day++){
       const date=toISO(new Date(start.getFullYear(),start.getMonth(),day));
-      const entries=monthEntries.filter(entry=>
-        entry.employee===employeeName&&entry.date===date
-      );
+      const entries=monthEntries.filter(entry=>entry.employee===employeeName&&entry.date===date);
       const dateObject=new Date(start.getFullYear(),start.getMonth(),day);
       const weekend=dateObject.getDay()===0||dateObject.getDay()===6;
 
@@ -731,6 +704,56 @@ function renderRoster(){
 
   html+="</tbody></table>";
   $("rosterTable").innerHTML=html;
+
+  // Employee edit/delete controls shown beneath each name in the roster sheet.
+  $("rosterTable").querySelectorAll(".edit-roster-person").forEach(button=>{
+    button.onclick=event=>{
+      event.stopPropagation();
+      const oldName=button.dataset.name;
+      const employee=state.employees.find(item=>
+        item.name===oldName&&item.shiftId===selectedShiftId
+      );
+      if(!employee)return;
+
+      const name=prompt("Employee name:",employee.name);
+      if(name===null)return;
+      if(!name.trim())return toast("Employee name cannot be blank.");
+
+      const iqamaNo=prompt("Iqama No:",employee.iqamaNo||"");
+      if(iqamaNo===null)return;
+
+      employee.name=name.trim();
+      employee.iqamaNo=iqamaNo.trim();
+
+      state.months.forEach(month=>{
+        month.entries.forEach(entry=>{
+          if(entry.employee===oldName)entry.employee=employee.name;
+        });
+      });
+
+      changed("Employee details updated.");
+    };
+  });
+
+  $("rosterTable").querySelectorAll(".delete-roster-person").forEach(button=>{
+    button.onclick=event=>{
+      event.stopPropagation();
+      const employee=state.employees.find(item=>
+        item.name===button.dataset.name&&item.shiftId===selectedShiftId
+      );
+      if(!employee)return;
+
+      if(!confirm(`Delete ${employee.name} and all their roster entries?`))return;
+
+      const name=employee.name;
+      state.employees=state.employees.filter(item=>item!==employee);
+      state.months.forEach(month=>{
+        month.entries=month.entries.filter(entry=>entry.employee!==name);
+      });
+
+      changed("Employee and roster entries deleted.");
+    };
+  });
 
   $("rosterTable").querySelectorAll(".delete-entry").forEach(button=>{
     button.onclick=event=>{
@@ -795,29 +818,19 @@ function renderOverview(){
   const entries=month.entries.filter(entry=>entry.shiftId===shift.id);
   const work=entries.filter(entry=>(entry.type||"work")==="work");
   const todayWork=work.filter(entry=>entry.date===todayISO);
-  const todayOff=entries.filter(entry=>
-    entry.date===todayISO&&(entry.type==="off"||entry.type==="holiday")
-  );
+  const todayOff=entries.filter(entry=>entry.date===todayISO&&(entry.type==="off"||entry.type==="holiday"));
 
   $("scheduledStat").textContent=work.length;
   $("workingStat").textContent=new Set(todayWork.map(entry=>entry.employee)).size;
   $("offStat").textContent=new Set(todayOff.map(entry=>entry.employee)).size;
-  $("hoursStat").textContent=work.reduce(
-    (sum,entry)=>sum+Number(entry.hours||shiftHours(shift)),0
-  );
-  $("employeeStat").textContent=state.employees.filter(
-    employee=>employee.shiftId===shift.id
-  ).length;
+  $("hoursStat").textContent=work.reduce((sum,entry)=>sum+Number(entry.hours||shiftHours(shift)),0);
+  $("employeeStat").textContent=state.employees.filter(employee=>employee.shiftId===shift.id).length;
   $("overviewDate").textContent=`${shift.name} · ${todayISO}`;
 }
 
 function renderAll(){
-  if(!state.months.some(month=>month.id===selectedMonthId)){
-    selectedMonthId=state.months[0]?.id;
-  }
-  if(!state.shifts.some(shift=>shift.id===selectedShiftId)){
-    selectedShiftId=state.shifts[0]?.id;
-  }
+  if(!state.months.some(month=>month.id===selectedMonthId))selectedMonthId=state.months[0]?.id;
+  if(!state.shifts.some(shift=>shift.id===selectedShiftId))selectedShiftId=state.shifts[0]?.id;
 
   renderPeople();
   renderMonthSelect();
@@ -835,8 +848,7 @@ $("addPersonForm").addEventListener("submit",event=>{
   if(!name)return;
 
   if(state.employees.some(employee=>
-    employee.name.toLowerCase()===name.toLowerCase()&&
-    employee.shiftId===selectedShiftId
+    employee.name.toLowerCase()===name.toLowerCase()&&employee.shiftId===selectedShiftId
   )){
     return toast("This employee is already assigned to the selected shift.");
   }
@@ -913,9 +925,7 @@ $("entryForm").addEventListener("submit",event=>{
   if(!date)return toast("Choose a date.");
   if(!shift)return toast("Choose a shift.");
 
-  const employee=state.employees.find(item=>
-    item.name===employeeName&&item.shiftId===shift.id
-  );
+  const employee=state.employees.find(item=>item.name===employeeName&&item.shiftId===shift.id);
   if(!employee)return toast("Choose an employee assigned to that shift.");
 
   const type=$("entryType").value;
@@ -923,9 +933,7 @@ $("entryForm").addEventListener("submit",event=>{
   const editEntryId=$("entryForm").dataset.editEntryId;
 
   if(editEntryId){
-    const oldMonth=state.months.find(item=>
-      item.entries.some(entry=>entry.id===editEntryId)
-    );
+    const oldMonth=state.months.find(item=>item.entries.some(entry=>entry.id===editEntryId));
     const existing=oldMonth?.entries.find(entry=>entry.id===editEntryId);
 
     if(existing){
@@ -1039,9 +1047,7 @@ $("exportXlsx").addEventListener("click",()=>{
       .sort((a,b)=>a.localeCompare(b));
 
     names.forEach(name=>{
-      const employee=state.employees.find(item=>
-        item.name===name&&item.shiftId===shift.id
-      );
+      const employee=state.employees.find(item=>item.name===name&&item.shiftId===shift.id);
       const row=[name,employee?.iqamaNo||""];
 
       for(let day=1;day<=days;day++){
@@ -1066,9 +1072,7 @@ $("exportXlsx").addEventListener("click",()=>{
   const detailRows=[["Date","Employee","Iqama No","Shift","Type","Start","End","Hours","Details"]];
   month.entries.filter(entry=>entry.shiftId===selectedShiftId).forEach(entry=>{
     const shift=state.shifts.find(item=>item.id===entry.shiftId);
-    const employee=state.employees.find(item=>
-      item.name===entry.employee&&item.shiftId===entry.shiftId
-    );
+    const employee=state.employees.find(item=>item.name===entry.employee&&item.shiftId===entry.shiftId);
 
     detailRows.push([
       entry.date,
@@ -1097,23 +1101,17 @@ $("xlsxInput").addEventListener("change",async event=>{
 
     const workbook=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
     let added=0;
-
     const key=value=>String(value??"").trim().toLowerCase();
 
     const parseDate=value=>{
       if(value instanceof Date&&!Number.isNaN(value.getTime()))return toISO(value);
-
       if(typeof value==="number"){
         const parsed=XLSX.SSF.parse_date_code(value);
-        return parsed?.y
-          ?`${parsed.y}-${String(parsed.m).padStart(2,"0")}-${String(parsed.d).padStart(2,"0")}`
-          :"";
+        return parsed?.y?`${parsed.y}-${String(parsed.m).padStart(2,"0")}-${String(parsed.d).padStart(2,"0")}`:"";
       }
-
       const text=String(value??"").trim();
       const iso=text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
       if(iso)return `${iso[1]}-${String(iso[2]).padStart(2,"0")}-${String(iso[3]).padStart(2,"0")}`;
-
       const dmy=text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
       return dmy?`${dmy[3]}-${String(dmy[2]).padStart(2,"0")}-${String(dmy[1]).padStart(2,"0")}`:"";
     };
@@ -1130,16 +1128,11 @@ $("xlsxInput").addEventListener("change",async event=>{
       );
 
       if(!employee){
-        employee={
-          name,
-          iqamaNo:String(iqama||"").trim(),
-          shiftId:shift.id
-        };
+        employee={name,iqamaNo:String(iqama||"").trim(),shiftId:shift.id};
         state.employees.push(employee);
       }else if(iqama){
         employee.iqamaNo=String(iqama).trim();
       }
-
       return employee;
     };
 
@@ -1187,9 +1180,7 @@ $("xlsxInput").addEventListener("change",async event=>{
         shiftId:shift.id,
         type,
         details:cleanDetails,
-        hours:Number.isFinite(parsedHours)&&parsedHours>0
-          ?parsedHours
-          :(type==="work"?shiftHours(shift):0)
+        hours:Number.isFinite(parsedHours)&&parsedHours>0?parsedHours:(type==="work"?shiftHours(shift):0)
       });
       added++;
     };
@@ -1223,9 +1214,7 @@ $("xlsxInput").addEventListener("change",async event=>{
       }
     }else{
       for(const sheetName of workbook.SheetNames){
-        const matrix=XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{
-          header:1,defval:"",raw:true
-        });
+        const matrix=XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{header:1,defval:"",raw:true});
 
         const headerIndex=matrix.findIndex(row=>{
           const cells=row.map(key);
@@ -1236,9 +1225,7 @@ $("xlsxInput").addEventListener("change",async event=>{
 
         const headers=matrix[headerIndex].map(String);
         const employeeColumn=headers.findIndex(header=>key(header)==="employee");
-        const iqamaColumn=headers.findIndex(header=>
-          ["iqama no","iqama number","iqama"].includes(key(header))
-        );
+        const iqamaColumn=headers.findIndex(header=>["iqama no","iqama number","iqama"].includes(key(header)));
 
         const title=String(matrix[0]?.[0]||sheetName).trim();
         const shiftName=title.split(" — ")[0].trim()||sheetName;
@@ -1246,8 +1233,8 @@ $("xlsxInput").addEventListener("change",async event=>{
         const time=meta.match(/Time:\s*(\d{2}:\d{2})\s*[–-]\s*(\d{2}:\d{2})/i);
         const kind=/night/i.test(shiftName)?"night":"day";
         const shift=findShift(shiftName,time?.[1],time?.[2],kind);
-        const yearMonth=meta.match(/\b(20\d{2})-(\d{1,2})\b/);
 
+        const yearMonth=meta.match(/\b(20\d{2})-(\d{1,2})\b/);
         const monthValue=yearMonth
           ?`${yearMonth[1]}-${String(Number(yearMonth[2])).padStart(2,"0")}`
           :selectedMonth().month;
@@ -1266,7 +1253,6 @@ $("xlsxInput").addEventListener("change",async event=>{
 
           for(const column of dayColumns){
             if(column.day>maxDay)continue;
-
             const value=String(row[column.index]??"").trim();
             if(!value||value==="·")continue;
 
@@ -1274,11 +1260,8 @@ $("xlsxInput").addEventListener("change",async event=>{
             const type=upper==="O"||upper.startsWith("OFF")?"off":
               upper.startsWith("HOLIDAY")?"holiday":
               upper.startsWith("NOTE")?"note":"work";
-            const details=value.includes(":")
-              ?value.slice(value.indexOf(":")+1).trim()
-              :"";
+            const details=value.includes(":")?value.slice(value.indexOf(":")+1).trim():"";
             const date=`${year}-${String(monthNumber).padStart(2,"0")}-${String(column.day).padStart(2,"0")}`;
-
             addEntry(name,iqama,date,shift,type,details,"");
           }
         }
@@ -1299,8 +1282,7 @@ $("printButton").onclick=()=>window.print();
 
 document.querySelectorAll(".rail [data-scroll]").forEach(button=>{
   button.onclick=()=>{
-    document.getElementById(button.dataset.scroll)
-      .scrollIntoView({behavior:"smooth",block:"center"});
+    document.getElementById(button.dataset.scroll).scrollIntoView({behavior:"smooth",block:"center"});
   };
 });
 
@@ -1321,9 +1303,7 @@ async function connectFirebase(){
           if(!state.months.some(month=>month.id===selectedMonthId)){
             selectedMonthId=state.months.find(month=>month.month===monthKey(today))?.id||state.months[0].id;
           }
-          if(!state.shifts.some(shift=>shift.id===selectedShiftId)){
-            selectedShiftId=state.shifts[0].id;
-          }
+          if(!state.shifts.some(shift=>shift.id===selectedShiftId))selectedShiftId=state.shifts[0].id;
 
           renderAll();
           setStatus("Firebase synced","online");
